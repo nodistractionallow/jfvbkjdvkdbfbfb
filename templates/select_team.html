@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPL Auction Game - Select Your Team</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Select Your Franchise</h1>
+    </header>
+    <div class="container">
+        <!-- Changed action to /select_team_action -->
+        <form id="selectTeamForm" method="POST" action="{{ url_for('select_team_action') }}">
+            <div class="team-grid">
+                <!-- Use teams_display_data now -->
+                {% for team_key, team_info in teams_display_data.items() %}
+                <div class="team-card" style="border-left: 5px solid {{ team_info.color }}; background-color: {{ team_info.color }}20;"
+                     onclick="document.getElementById('selected_team_input_{{ team_key }}').checked = true; document.getElementById('selectTeamForm').submit();">
+                    <img src="{{ url_for('static', filename='images/logos/' + team_info.logo) }}" alt="{{ team_info.name }} Logo">
+                    <h3>{{ team_info.name }}</h3>
+                    <!-- The value submitted will be the key like "CSK", "MI" -->
+                    <input type="radio" name="selected_team_key" value="{{ team_key }}" id="selected_team_input_{{ team_key }}" style="display:none;">
+                </div>
+                {% endfor %}
+            </div>
+        </form>
+    </div>
+</body>
+</html>

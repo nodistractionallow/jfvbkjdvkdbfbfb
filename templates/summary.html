@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Auction Summary</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .team-summary-card { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; background-color: #f9f9f9; border-radius: 5px;}
+        .team-summary-card h3 { margin-top: 0; color: #007bff; }
+        .player-list li { font-size: 0.9em; }
+        .sold-history table { width: 100%; border-collapse: collapse; margin-top:10px;}
+        .sold-history th, .sold-history td { border: 1px solid #ddd; padding: 6px; text-align: left; font-size:0.9em;}
+    </style>
+</head>
+<body>
+    <header>
+        <h1>IPL Auction Summary</h1>
+    </header>
+
+    <div class="container">
+        <h2>Team Overviews:</h2>
+        {% for team_id_key, team_details in teams_final_state_display.items() %}
+        <div class="team-summary-card">
+            <h3>{{ team_details.display_name }}</h3>
+            <p><strong>Budget Remaining:</strong> ₹{{ team_details.budget }}L</p>
+            <p><strong>Squad Size:</strong> {{ team_details.squad_after_retention | length }} / {{ team_details.max_squad_size }}</p>
+            <h4>Squad:</h4>
+            <ul class="player-list">
+                {% for player_info in team_details.player_price_details %}
+                    <li>{{ player_info.name }} ({{player_info.role}}) - {{ player_info.price_str }}</li>
+                {% else %}
+                    <li>No players acquired.</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% else %}
+            <p>No team data available to display.</p>
+        {% endfor %}
+
+        <h2>Auction Transaction History (Sold Players):</h2>
+        {% if sold_players_history_display %}
+        <div class="sold-history">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Player Name</th>
+                        <th>Role</th>
+                        <th>Sold To</th>
+                        <th>Price (Lakhs)</th>
+                        <th>Reason (if any)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in sold_players_history_display %}
+                    <tr>
+                        <td>{{ item.name }}</td>
+                        <td>{{ item.role }}</td>
+                        <td>{{ item.team }}</td>
+                        <td>₹{{ item.price }}L</td>
+                        <td>{{ item.reason | default('') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p>No players were sold in this auction or history is unavailable.</p>
+        {% endif %}
+        <hr style="margin-top:30px;">
+        <p><a href="{{ url_for('index') }}">Start New Auction (Resets Session)</a></p>
+    </div>
+</body>
+</html>

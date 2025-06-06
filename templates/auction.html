@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IPL Auction - {{ auction_runtime_state_snapshot.player_up_for_auction.name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .auction-layout { display: flex; justify-content: space-between; margin-top: 20px; }
+        .player-display { width: 40%; padding: 15px; border: 1px solid #ccc; background-color: #f9f9f9; box-shadow: 2px 2px 5px #eee;}
+        .bidding-panel { width: 58%; }
+        .bid-log { height: 150px; overflow-y: scroll; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; background-color: #fff; }
+        .bid-log p { margin: 2px 0; font-size: 0.9em; }
+        .bid-log .system { color: #007bff; font-style: italic; }
+        .bid-log .user-bid { color: #28a745; font-weight: bold;}
+        .bid-log .ai-bid { color: #dc3545; }
+        .team-budgets { margin-top:15px; }
+        .team-budgets table { width:100%; border-collapse: collapse; }
+        .team-budgets th, .team-budgets td { border:1px solid #ddd; padding: 4px; text-align: left; font-size:0.85em; }
+        .user-dashboard { background-color: #e9f5ff; padding: 10px; border-radius: 5px; margin-top: 15px;}
+        .user-dashboard h3 { margin-top:0; }
+        .user-dashboard ul { list-style: none; padding-left: 0;}
+        .user-dashboard ul li { margin-bottom: 3px; font-size:0.9em;}
+        .player-status-message { padding: 10px; background-color: #ffc107; color: #333; border-radius: 4px; margin-bottom: 15px; text-align: center; font-weight: bold;}
+    </style>
+</head>
+<body>
+    <header>
+        <h1>IPL Auction - Player {{current_player_auction_number}} of {{total_players_in_auction_pool}}</h1>
+    </header>
+
+    <div class="container">
+        {% if auction_runtime_state_snapshot.player_sold_status_message %}
+            <div class="player-status-message">
+                {{ auction_runtime_state_snapshot.player_sold_status_message }}
+                <!-- This message means player is sold/unsold, so primary actions should be to go to next player -->
+            </div>
+        {% endif %}
+
+        <div class="auction-layout">
+            <div class="player-display">
+                <h2>Up for Auction: {{ auction_runtime_state_snapshot.player_up_for_auction.name }}</h2>
+                <p><strong>Role:</strong> {{ auction_runtime_state_snapshot.player_up_for_auction.role }}</p>
+                <p><strong>Base Price:</strong> ₹{{ auction_runtime_state_snapshot.player_up_for_auction.base_price }}L</p>
+                <p><strong>Demand Score:</strong> {{ auction_runtime_state_snapshot.player_up_for_auction.demand }}</p>
+                <hr>
+                <h4>Stats:</h4>
+                <p>Runs: {{ auction_runtime_state_snapshot.player_up_for_auction.runs }} | Avg: {{ auction_runtime_state_snapshot.player_up_for_auction.avg }} | SR: {{ auction_runtime_state_snapshot.player_up_for_auction.sr }}</p>
+                <p>Wickets: {{ auction_runtime_state_snapshot.player_up_for_auction.wickets }} | Eco: {{ auction_runtime_state_snapshot.player_up_for_auction.eco }}</p>
+            </div>
+
+            <div class="bidding-panel">
+                <h3>Current Highest Bid: ₹{{ auction_runtime_state_snapshot.current_highest_bid }}L</h3>
+                <p><strong>Highest Bidder:</strong> <span id="highestBidderName">{{ current_highest_bidder_display_name }}</span></p>
+
+                <h4>Bid Log:</h4>
+                <div class="bid-log">
+                    {% for bid_entry in auction_runtime_state_snapshot.bids_log %}
+                        <p class="{{ bid_entry.bidder.lower() if bid_entry.bidder != 'System' else 'system' }}">
+                           [{{ bid_entry.timestamp }}] <strong>{{ bid_entry.bidder }}:</strong> {{ bid_entry.info }}
+                        </p>
+                    {% endfor %}
+                </div>
+
+                {% if not auction_runtime_state_snapshot.player_sold_status_message %}
+                <form action="{{ url_for('auction_bid') }}" method="POST" style="display:inline;">
+                    <input type="number" name="bid_amount" placeholder="Your Bid (Lakhs)" min="{{ auction_runtime_state_snapshot.current_highest_bid + 10 }}" step="10" required>
+                    <button type="submit">Place Bid</button>
+                </form>
+                <form action="{{ url_for('auction_observe') }}" method="POST" style="display:inline;">
+                    <button type="submit">Observe AI Bids</button>
+                </form>
+                <form action="{{ url_for('auction_skip') }}" method="POST" style="display:inline;">
+                    <button type="submit" onclick="return confirm('Are you sure you want to skip this player? This might mark them as UNSOLD for you.')">Skip Player</button>
+                </form>
+                {% else %}
+                 <form action="{{ url_for('auction_main') }}" method="GET" style="display:inline;">
+                    <button type="submit">Next Player</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="user-dashboard">
+            <h3>Your Team: {{ user_team_display_name }}</h3>
+            <p>Budget Remaining: ₹{{ user_team_current_budget }}L</p>
+            <p>Squad: {{ user_squad_display | length }} / {{ user_team_max_squad }} players</p>
+            <ul>
+                {% for p_info in user_squad_display %}
+                <li>{{p_info.name}} ({{p_info.role}}) - {{p_info.display_price}}</li>
+                {% else %}
+                <li>No players in squad yet.</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="team-budgets">
+            <h4>All Team Budgets:</h4>
+            <table>
+                <tr><th>Team</th><th>Budget (Lakhs)</th><th>Squad Size</th></tr>
+                {% for team_info in all_teams_budgets_info %}
+                <tr>
+                    <td>{{ team_info.name }}</td>
+                    <td>₹{{ team_info.budget }}L</td>
+                    <td>{{ team_info.squad_count }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+        <hr style="margin-top: 20px;">
+        <p><a href="{{ url_for('index') }}">Quit Auction (Reset Session)</a> | <a href="{{ url_for('auction_summary_page') }}">Go to Auction Summary (Ends Auction)</a></p>
+
+    </div>
+</body>
+</html>
