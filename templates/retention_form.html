@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"> <!-- Corrected from UTF-R -->
+    <title>Player Retention: {{ user_team_display_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .player-card { border: 1px solid #eee; padding: 10px; margin-bottom: 10px; border-radius: 5px; background-color: #f9f9f9; }
+        .player-card label { font-weight: bold; }
+        .player-stats { font-size: 0.9em; color: #555; margin-top: 5px;}
+        #num_retain_exact_div { display: none; margin-top: 10px; padding:10px; border: 1px dashed #ccc; background-color: #efefef; }
+        .retention-options { margin-bottom:20px; padding:15px; background-color:#e9f7fd; border-left: 5px solid #0779e4;}
+        .retention-options label { margin-right: 10px; }
+        button[type="submit"] {
+            background-color: #0779e4; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;
+        }
+        button[type="submit"]:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <header><h1>Player Retention: {{ user_team_display_name }} (Budget: ₹{{ user_team_budget }}L)</h1></header>
+    <div class="container">
+        <form action="{{ url_for('process_retention_choices') }}" method="POST">
+            <div class="retention-options">
+                <h2>Retention Mode:</h2>
+                <input type="radio" name="retention_mode" value="any_number" id="mode_any" checked onchange="toggleExactNumInput()">
+                <label for="mode_any">Retain Any Number (for your team; AI teams will retain a random number 1-4)</label><br>
+                <input type="radio" name="retention_mode" value="exact" id="mode_exact" onchange="toggleExactNumInput()">
+                <label for="mode_exact">Retain Exact Number (applies to ALL teams)</label>
+
+                <div id="num_retain_exact_div">
+                    <label for="num_retain_exact_input">Number of players to retain for all teams (e.g., 1-5):</label>
+                    <input type="number" name="num_retain_exact" id="num_retain_exact_input" min="1" max="5" value="3">
+                    <small>(User must select this many players below if this mode is chosen. AI will also adhere to this.)</small>
+                </div>
+            </div>
+
+            <h2>Your Initial Squad (Sorted by Demand - from teams.json):</h2>
+            <p>Select players to retain. Retention cost is ₹150L per player (deducted from budget). Max 8 for 'Any Number' mode.</p>
+
+            {% if user_team_initial_squad_details %}
+                {% for player in user_team_initial_squad_details %}
+                <div class="player-card">
+                    <input type="checkbox" name="retained_players" value="{{ player.name }}" id="player_{{ player.name | replace(' ', '_') }}"> <!-- Ensure unique ID -->
+                    <label for="player_{{ player.name | replace(' ', '_') }}">{{ player.name }}</label>
+                    <div class="player-stats">
+                        Role: {{ player.role }} | Runs: {{ player.runs }} | Wickets: {{ player.wickets }} | Avg: {{player.avg}} | SR: {{player.sr}} | Eco: {{player.eco}} | Demand: {{ player.demand }} | Base: ₹{{player.base_price}}L
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>No players in your initial squad to retain.</p>
+            {% endif %}
+            <br>
+            <button type="submit">Finalize Retained Players & Proceed to Auction</button>
+        </form>
+        <hr style="margin-top:30px; margin-bottom:20px;">
+        <a href="{{ url_for('index') }}">Back to Team Selection (will reset progress)</a>
+    </div>
+
+    <script>
+        function toggleExactNumInput() {
+            var exactMode = document.getElementById('mode_exact').checked;
+            document.getElementById('num_retain_exact_div').style.display = exactMode ? 'block' : 'none';
+            if (exactMode) {
+                // Optional: clear 'any number' specific warnings or limits if any were displayed
+            } else {
+                // Optional: clear 'exact number' specific warnings or limits
+            }
+        }
+        // Call it on page load to set initial state based on checked radio
+        document.addEventListener('DOMContentLoaded', toggleExactNumInput);
+    </script>
+</body>
+</html>
