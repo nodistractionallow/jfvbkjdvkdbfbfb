@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Choose Retention Mode</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .button-like-link {
+            display: inline-block;
+            padding: 12px 25px;
+            margin: 15px;
+            font-size: 1.1em;
+            color: #fff;
+            background-color: #007bff; /* Primary button color */
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            transition: background-color 0.3s ease;
+            cursor: pointer;
+        }
+        .button-like-link:hover {
+            background-color: #0056b3; /* Darker shade on hover */
+        }
+        .button-secondary {
+            background-color: #6c757d; /* Secondary button color */
+        }
+        .button-secondary:hover {
+            background-color: #545b62;
+        }
+        h1, h2 {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Choose Retention Mode</h1>
+        {% if user_team_display_info and user_team_display_info.name %}
+            <h2>Managing: {{ user_team_display_info.name }}</h2>
+        {% else %}
+            <h2>Managing: Unknown Team</h2>
+        {% endif %}
+
+        <p>Select how you want to proceed with player retentions for your team and the AI teams.</p>
+
+        <div>
+            <a href="{{ url_for('retention_home', retention_mode_selection='any') }}" class="button-like-link">Retain Any Number of Players</a>
+            <a href="{{ url_for('retention_home', retention_mode_selection='exact') }}" class="button-like-link button-secondary">Retain Exact Number of Players</a>
+        </div>
+
+        <div style="margin-top: 30px;">
+            <p><strong>Any Number:</strong> You choose how many players (0-8) your team retains. AI teams will also retain a variable number of players (typically 1-4, based on their strategy).</p>
+            <p><strong>Exact Number:</strong> You specify a number (e.g., 3 players). ALL teams (yours and AI) will attempt to retain exactly that many players, if possible from their initial rosters and budget.</p>
+        </div>
+         <p style="margin-top: 20px;"><a href="{{ url_for('index') }}">Back to Team Selection</a></p>
+    </div>
+</body>
+</html>
