@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retention Summary</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Retention Summary</h1>
+
+        <h2>{{ user_team_display_info['name'] }}'s Retentions</h2>
+        <p>Remaining Budget: {{ teams_current_state[user_team_display_info['id']]['budget'] }} L</p>
+        <h3>Retained Players:</h3>
+        <ul>
+            {% for player in teams_current_state[user_team_display_info['id']]['players_details'] %}
+                <li>{{ player.name }} ({{ player.role }}) - 150L</li>
+            {% else %}
+                <li>No players retained.</li>
+            {% endfor %}
+        </ul>
+
+        <hr>
+
+        <h2>Other Teams' Retentions</h2>
+        {% for team_id, team_data in teams_current_state.items() %}
+            {% if team_id != user_team_display_info['id'] %}
+                <h3>{{ team_data.name }}</h3>
+                <p>Remaining Budget: {{ team_data.budget }} L</p>
+                <h4>Retained Players:</h4>
+                <ul>
+                    {% for player in team_data.players_details %}
+                        <li>{{ player.name }} ({{ player.role }}) - 150L</li>
+                    {% else %}
+                        <li>No players retained.</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endfor %}
+
+        <hr>
+
+        <a href="{{ url_for('auction_main') }}" class="button">Proceed to Auction</a>
+    </div>
+</body>
+</html>

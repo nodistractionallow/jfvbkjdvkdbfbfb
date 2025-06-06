@@ -1,5 +1,6 @@
 import json
 import random
+import datetime # For timestamps
 
 # NAME_MAPPING and other initial parts (get_role, Team, AuctionManager etc. remain unchanged from the previous version)
 
@@ -301,7 +302,32 @@ class AuctionManager:
             self.teams[team_name_upper] = Team(name=team_name_upper, players_json_list=initial_player_names_list, full_auction_pool=self.original_master_auction_pool)
 
     def setup_auction_stage(self, teams_state_after_retention_dict, auction_pool_after_retention_list):
-        self.teams = teams_state_after_retention_dict
+        # teams_state_after_retention_dict is session['teams_current_state']
+        # self.teams already contains Team objects from __init__
+        # Update these Team objects based on the state from session after retention
+        for team_id, team_session_data in teams_state_after_retention_dict.items():
+            team_obj = self.teams.get(team_id.upper()) # team_id should be like 'csk', 'mi'
+            if team_obj:
+                team_obj.budget = team_session_data.get('budget', team_obj.budget)
+
+                # Reconstruct squad with full player objects for the Team instance
+                # team_session_data['squad_after_retention'] is a list of player names
+                # team_session_data['player_prices'] has prices for these names
+
+                new_squad_for_team_obj = []
+                initial_pool = self.original_master_auction_pool # Use the manager's initial pool for consistency
+
+                for player_name in team_session_data.get('squad_after_retention', []):
+                    player_detail = next((p.copy() for p in initial_pool if p['name'] == player_name), None)
+                    if player_detail:
+                        price = team_session_data.get('player_prices', {}).get(player_name, 0) # Default to 0 if price not found
+                        player_with_price = {**player_detail, "Price": price}
+                        new_squad_for_team_obj.append(player_with_price)
+                team_obj.squad = new_squad_for_team_obj
+            else:
+                # This case should ideally not happen if initial_teams_json_data and teams_current_state are consistent
+                print(f"Warning: Team ID {team_id} from session state not found in AuctionManager's initial teams.")
+
         self.current_auction_pool_for_bidding = [p.copy() for p in auction_pool_after_retention_list]
         random.shuffle(self.current_auction_pool_for_bidding)
         self.current_player_auction_index = -1
@@ -319,14 +345,19 @@ class AuctionManager:
             self.current_highest_bid_amount = self.current_player_up_for_auction.get("base_price", 20)
             self.current_highest_bidder_team_obj = None
             self._log_bid_event("System", f"Auction started for {self.current_player_up_for_auction.get('name','Unknown')} (Role: {self.current_player_up_for_auction.get('role','N/A')}) at base price {self.current_highest_bid_amount}L.")
-            return self.current_player_up_for_auction, self.current_highest_bid_amount, False
+            return self.current_player_up_for_auction, self.current_highest_bid_amount, self.is_auction_over() # Return auction_over flag
         else:
             self.current_player_up_for_auction = None
             self._log_bid_event("System", "All players auctioned.")
-            return None, 0, False
+            # self.auction_over_flag = True # Set flag here
+            return None, 0, self.is_auction_over() # Return auction_over flag
+
+    def is_auction_over(self):
+        return self.current_player_auction_index >= len(self.current_auction_pool_for_bidding) -1 and self.current_player_up_for_auction is None
+
 
     def _log_bid_event(self, bidder_name, message_or_amount_info):
-        entry = {"bidder": bidder_name, "info": message_or_amount_info, "timestamp": "sometime"}
+        entry = {"bidder": bidder_name, "info": message_or_amount_info, "timestamp": datetime.datetime.now().strftime("%H:%M:%S")}
         self.current_bids_log_for_player.append(entry)
 
     def process_user_bid(self, user_team_obj, bid_amount_by_user):
@@ -354,24 +385,38 @@ class AuctionManager:
         return None, "No AI bids placed or no AI outbid the current highest."
 
     def finalize_current_player_auction(self):
-        if not self.current_player_up_for_auction: return False, "No player auction to finalize.", None
+        if not self.current_player_up_for_auction: return False, "No player auction to finalize.", None, False
         player_being_sold_or_unsold = self.current_player_up_for_auction
         final_price = self.current_highest_bid_amount
         winning_team_obj = self.current_highest_bidder_team_obj
         player_name = player_being_sold_or_unsold.get('name', 'Unknown')
+
         if winning_team_obj:
+            # Attempt to add player to squad. This method updates budget and squad list internally.
             if winning_team_obj.add_player_to_squad(player_being_sold_or_unsold, final_price):
-                self.sold_players_log.append({"name": player_name, "price": final_price, "team": winning_team_obj.name, "role": player_being_sold_or_unsold.get("role","N/A")})
+                self.sold_players_log.append({
+                    "name": player_name,
+                    "price": final_price,
+                    "team_id": winning_team_obj.name,  # Store team ID
+                    "role": player_being_sold_or_unsold.get("role","N/A")
+                })
                 self._log_bid_event("System", f"SOLD to {winning_team_obj.name} for {final_price}L.")
-                return True, f"{player_name} sold to {winning_team_obj.name} for {final_price}L.", winning_team_obj.name
+                # After selling, the current player is done. Set to None for next player logic.
+                self.current_player_up_for_auction = None
+                return True, f"{player_name} sold to {winning_team_obj.name} for {final_price}L.", winning_team_obj.name, self.is_auction_over()
             else:
+                # This case implies can_add_player check failed post-bidding (e.g. budget constraint due to parallel action not modeled here)
+                # Or, more likely, a logic error if can_add_player was true during bidding.
                 self._log_bid_event("System", f"Sale FAILED for {player_name} to {winning_team_obj.name} (post-bid squad/budget issue). Player UNSOLD.")
                 self.unsold_players_log.append(player_being_sold_or_unsold)
-                return False, f"Sale failed for {player_name}. Player UNSOLD.", None
+                self.current_player_up_for_auction = None
+                return False, f"Sale failed for {player_name}. Player UNSOLD.", None, self.is_auction_over()
         else:
+            # No winning bidder, player is unsold
             self._log_bid_event("System", f"{player_name} is UNSOLD at {player_being_sold_or_unsold.get('base_price',0)}L.")
             self.unsold_players_log.append(player_being_sold_or_unsold)
-            return False, f"{player_name} UNSOLD.", None
+            self.current_player_up_for_auction = None
+            return False, f"{player_name} UNSOLD.", None, self.is_auction_over()
 
     def get_all_teams_summary_for_display(self):
         summary_list = []
